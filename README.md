@@ -33,6 +33,43 @@ let log = Log(category: "Networking")
 log.info("Request started", metadata: ["url": .string(url.absoluteString)])
 ```
 
+## Recommended defaults
+
+```swift
+var config = LogConfiguration.recommended()
+LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
+```
+
+Or:
+
+```swift
+LogSystem.bootstrapRecommended()
+```
+
+Or recommended + environment overrides:
+
+```swift
+LogSystem.bootstrapRecommendedFromEnvironment()
+```
+
+Or CI-friendly JSON stdout:
+
+```swift
+LogSystem.bootstrapRecommendedForCI()
+```
+
+## Production checklist
+
+- Use `.private` privacy for OSLog in release builds.
+- Redact sensitive keys like `password`, `token`, `authorization`.
+- Set `maxMessageBytes` to avoid oversized payloads.
+- Use file protection + exclude logs from backup if needed.
+- Use per‑category/tag levels and rate limits to reduce noise.
+
+## Migration
+
+If you're moving from `print` or `OSLog`, see the DocC article `Migration` for quick replacements and structured metadata examples.
+
 ## Tags and markers
 
 ```swift
@@ -76,7 +113,8 @@ log.info("Payload",
          metadata: [
             "url": .url(url),
             "data": .data(payload, encoding: .base64),
-            "error": .error(error),
+            "summary": .stringTruncated(longText, maxBytes: 512),
+            "error": .error(error, maxBytes: 512),
             "user": .encodable(user)
          ])
 ```
@@ -112,6 +150,28 @@ struct MyFormatter: LogFormatter {
 let sink = StdoutSink(format: .text, configuration: .default, formatter: MyFormatter())
 ```
 
+### Sink error handling
+
+```swift
+LogSystem.setSinkErrorHandler { error in
+    print("ModernLogger sink error: \(error)")
+}
+```
+
+### Sink error diagnostics
+
+```swift
+let snapshots = LogSystem.sinkErrorSnapshots()
+LogSystem.clearSinkErrors()
+```
+
+If you build a custom sink, reuse the helper to record errors:
+
+```swift
+let handler = LogSystem.makeSinkErrorHandler(label: "MySink")
+// Pass handler into your sink and call it on errors.
+```
+
 ## Event stream (in‑app viewers)
 
 ```swift
@@ -123,13 +183,86 @@ Task {
 }
 ```
 
+## Integration examples
+
+### SwiftUI
+
+```swift
+struct ContentView: View {
+    private let log = Log(category: "UI")
+
+    var body: some View {
+        Text("Hello")
+            .task {
+                log.info("ContentView appeared")
+            }
+    }
+}
+```
+
+### In‑app log viewer
+
+```swift
+struct LogViewer: View {
+    @State private var events: [LogEvent] = []
+
+    var body: some View {
+        List(events, id: \.id) { event in
+            Text("[\(event.level.name.uppercased())] \(event.message)")
+        }
+        .task {
+            let stream = LogSystem.events()
+            for await event in stream {
+                events.append(event)
+                if events.count > 500 { events.removeFirst(events.count - 500) }
+            }
+        }
+    }
+}
+```
+
+### URLSession
+
+```swift
+let log = Log(category: "Networking")
+let (data, _) = try await URLSession.shared.data(from: url)
+log.debug("Response", metadata: ["bytes": .int(Int64(data.count))])
+```
+
+### Background task
+
+```swift
+let log = Log(category: "Background")
+await LogSystem.withContext(tags: [.feature("Refresh")]) {
+    log.notice("Background refresh started")
+}
+```
+
 ## Configuration
+
+### Default subsystem
+
+```swift
+// Override the default subsystem used by new Log instances.
+LogSystem.setDefaultSubsystem("com.example.app")
+```
 
 ### Per‑category minimum levels
 
 ```swift
 var config = LogConfiguration.default
 config.categoryMinimumLevels = ["Networking": .debug, "UI": .info]
+// or
+config.setCategoryMinimumLevel(.debug, for: "Networking")
+```
+
+### Per‑tag minimum levels
+
+```swift
+var config = LogConfiguration.default
+config.tagMinimumLevels = ["feature:Checkout": .error]
+// or
+config.setTagMinimumLevel(.error, for: .feature("Checkout"))
 ```
 
 ### Sampling
@@ -145,6 +278,31 @@ config.filter.sampling = .init(rate: 0.25) // 25% of events
 var config = LogConfiguration.default
 config.rateLimit = RateLimit(eventsPerSecond: 50) // global
 config.categoryRateLimits = ["Networking": RateLimit(eventsPerSecond: 10)]
+// or
+config.setCategoryRateLimit(RateLimit(eventsPerSecond: 10), for: "Networking")
+```
+
+### Per‑tag rate limiting
+
+```swift
+var config = LogConfiguration.default
+config.tagRateLimits = ["feature:Checkout": RateLimit(eventsPerSecond: 5)]
+// or
+config.setTagRateLimit(RateLimit(eventsPerSecond: 5), for: .feature("Checkout"))
+```
+
+### Message truncation
+
+```swift
+var config = LogConfiguration.default
+config.maxMessageBytes = 1024
+```
+
+### Redaction patterns
+
+```swift
+var config = LogConfiguration.default
+config.redactedMetadataKeys = ["password", "auth.*", "*.token"]
 ```
 
 ### Metadata merge policy
@@ -167,6 +325,22 @@ let buffering = FileSink.Buffering(maxBytes: 64 * 1024, flushInterval: 2)
 let sink = FileSink(url: FileSink.defaultURL(), rotation: rotation, buffering: buffering)
 ```
 
+### File protection + backup exclusion
+
+```swift
+let options = FileSink.FileOptions(
+    protection: .completeUntilFirstUserAuthentication,
+    excludeFromBackup: true
+)
+let sink = FileSink(url: FileSink.defaultURL(), fileOptions: options)
+```
+
+## Privacy & PII guidance
+
+- Avoid logging secrets (tokens, passwords, auth headers); redact aggressively.
+- Prefer `LogPrivacy.private` for OSLog in production.
+- Keep JSONL logs in Caches and exclude from backup if re‑downloadable.
+
 ## Environment & Info.plist keys
 
 All keys can be provided via environment variables or Info.plist entries:
@@ -187,12 +361,18 @@ MODERNLOGGER_FILE_MAX_AGE_SECONDS=3600
 MODERNLOGGER_FILE_COMPRESSION=zlib       # none|zlib|lz4|lzfse|lzma
 MODERNLOGGER_FILE_BUFFER_BYTES=65536
 MODERNLOGGER_FILE_FLUSH_INTERVAL=2
+MODERNLOGGER_FILE_PROTECTION=completeUntilFirstUserAuthentication
+MODERNLOGGER_FILE_EXCLUDE_FROM_BACKUP=1
 MODERNLOGGER_REDACT_KEYS=password,token,authorization
 MODERNLOGGER_CATEGORY_LEVELS=Networking=debug,UI=info
+MODERNLOGGER_TAG_LEVELS=feature:Checkout=error
 MODERNLOGGER_SAMPLE_RATE=0.25
 MODERNLOGGER_RATE_LIMIT=50
 MODERNLOGGER_CATEGORY_RATE_LIMITS=Networking=10
+MODERNLOGGER_TAG_RATE_LIMITS=feature:Checkout=5
 MODERNLOGGER_MERGE_POLICY=keepExisting   # or replaceWithNew
+MODERNLOGGER_MAX_MESSAGE_BYTES=1024
+MODERNLOGGER_SUBSYSTEM=com.example.app
 ```
 
 ## JSONL event schema (file/stdout JSON)
@@ -209,3 +389,21 @@ Each line is a single JSON object matching `LogEvent`:
 ```bash
 swift test
 ```
+
+## Changelog
+
+See `CHANGELOG.md`.
+
+## Contributing
+
+See `CONTRIBUTING.md`.
+
+## Examples
+
+- `Examples/SwiftUIDemo/README.md`
+
+## Support & troubleshooting
+
+- No logs? Ensure you called `LogSystem.bootstrap...()` before logging.
+- Nothing in CI? Set `MODERNLOGGER_STDOUT=1` or use `bootstrapRecommendedForCI()`.
+- Too noisy? Raise `minimumLevel` and add per‑category/tag limits.
