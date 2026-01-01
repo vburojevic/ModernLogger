@@ -20,6 +20,24 @@ let sink = StdoutSink(format: .json, configuration: config)
 LogSystem.bootstrap(configuration: config, sinks: [sink])
 ```
 
+## Pretty stdout for humans
+
+```swift
+var config = LogConfiguration.recommended()
+config.textStyle = .pretty
+let sink = StdoutSink(format: .text, configuration: config)
+LogSystem.bootstrap(configuration: config, sinks: [sink])
+```
+
+## JSONL for agents
+
+```swift
+var config = LogConfiguration.recommended(minLevel: .debug)
+config.deterministicJSON = true
+let sink = StdoutSink(format: .jsonl, configuration: config)
+LogSystem.bootstrap(configuration: config, sinks: [sink])
+```
+
 ## File sink with rotation
 
 ```swift

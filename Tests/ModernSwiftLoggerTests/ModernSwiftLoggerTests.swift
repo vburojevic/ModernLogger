@@ -328,7 +328,7 @@ final class ModernSwiftLoggerTests: XCTestCase {
 
         var config = LogConfiguration.default
         config.applyOverrides([.environment(prefix: prefix)])
-        XCTAssertEqual(config.textStyle, .verbose)
+        XCTAssertEqual(config.textStyle, .pretty)
     }
 
     func testEnvIncludeExcludeTagsAndCategories() async throws {

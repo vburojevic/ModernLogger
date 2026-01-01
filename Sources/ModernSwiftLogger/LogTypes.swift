@@ -559,6 +559,8 @@ public enum LogTextStyle: String, Sendable, Codable {
     case compact
     /// More verbose text format (includes execution context if present).
     case verbose
+    /// Multi-line, human-friendly format.
+    case pretty
 }
 
 /// Global configuration (filtering + formatting + redaction).
@@ -701,7 +703,7 @@ public struct LogConfiguration: Sendable, Codable {
             oslogPrivacy: privacy,
             includeSourceLocation: includeSource,
             includeExecutionContext: false,
-            textStyle: .compact,
+            textStyle: .pretty,
             redactedMetadataKeys: [],
             metadataMergePolicy: .replaceWithNew,
             streamBufferCapacity: buffer,
@@ -858,8 +860,10 @@ public struct LogConfiguration: Sendable, Codable {
         switch v {
         case "compact":
             return .compact
-        case "verbose", "pretty":
+        case "verbose":
             return .verbose
+        case "pretty":
+            return .pretty
         default:
             return nil
         }
@@ -1144,6 +1148,37 @@ enum LogFormatting {
             } else {
                 return "\(ts) [\(lvl)] [\(scope)] \(body) | \(extra.joined(separator: " "))"
             }
+        case .pretty:
+            var lines: [String] = []
+            lines.append("\(ts) [\(lvl)] [\(scope)]")
+            lines.append("message: \(event.message)")
+            if !event.tags.isEmpty {
+                lines.append("tags: \(event.tags.joined(separator: " "))")
+            }
+            if !event.metadata.isEmpty {
+                let keys = event.metadata.keys.sorted()
+                lines.append("meta:")
+                for key in keys {
+                    if let value = event.metadata[key] {
+                        lines.append("  - \(key): \(value)")
+                    }
+                }
+            }
+            if let src = event.source {
+                lines.append("source: \(src.fileID):\(src.line)")
+            }
+            if let exec = event.execution {
+                let thread = exec.isMainThread ? "main" : "bg"
+                var extra: [String] = []
+                extra.append("thread=\(thread)")
+                extra.append("pid=\(exec.processID)")
+                if let tid = exec.threadID { extra.append("tid=\(tid)") }
+                if let tn = exec.threadName { extra.append("tname=\(tn)") }
+                if let q = exec.queueLabel { extra.append("queue=\(q)") }
+                if let p = exec.taskPriority { extra.append("priority=\(p)") }
+                lines.append("execution: \(extra.joined(separator: " "))")
+            }
+            return lines.joined(separator: "\n")
         }
     }
 }

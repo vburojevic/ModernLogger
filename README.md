@@ -54,6 +54,8 @@ CI-friendly JSON stdout:
 LogSystem.bootstrapRecommendedForCI()
 ```
 
+`bootstrapRecommendedForCI()` uses JSONL with deterministic keys for agent-friendly ingestion.
+
 ## Core usage
 
 ### Tags and markers
@@ -207,6 +209,15 @@ var config = LogConfiguration.default
 config.deterministicJSON = true
 ```
 
+### Pretty text output (humans)
+
+```swift
+var config = LogConfiguration.recommended()
+config.textStyle = .pretty
+let sink = StdoutSink(format: .text, configuration: config)
+LogSystem.bootstrap(configuration: config, sinks: [sink])
+```
+
 ## File sink options
 
 ```swift
@@ -268,7 +279,7 @@ MODERNSWIFTLOGGER_EXCLUDE_TAGS=trace
 MODERNSWIFTLOGGER_OSLOG_PRIVACY=private       # or "public"
 MODERNSWIFTLOGGER_SOURCE=1
 MODERNSWIFTLOGGER_CONTEXT=1
-MODERNSWIFTLOGGER_TEXT_STYLE=compact          # or "verbose" (pretty alias)
+MODERNSWIFTLOGGER_TEXT_STYLE=compact          # or "verbose" or "pretty"
 MODERNSWIFTLOGGER_REDACT_KEYS=password,token,authorization
 MODERNSWIFTLOGGER_BUFFER=1024
 MODERNSWIFTLOGGER_CATEGORY_LEVELS=Networking=debug,UI=info
@@ -319,7 +330,7 @@ Recommended agent bootstrap (deterministic JSONL to stdout):
 ```swift
 var config = LogConfiguration.recommended(minLevel: .debug)
 config.deterministicJSON = true
-let sink = StdoutSink(format: .json, configuration: config)
+let sink = StdoutSink(format: .jsonl, configuration: config)
 LogSystem.bootstrap(configuration: config, sinks: [sink])
 ```
 

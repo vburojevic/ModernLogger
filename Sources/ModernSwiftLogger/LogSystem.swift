@@ -70,8 +70,9 @@ public enum LogSystem {
 
     /// Convenience: CI-friendly defaults (stdout JSON).
     public static func bootstrapRecommendedForCI() {
-        let config = LogConfiguration.recommended(minLevel: .debug)
-        let sink = StdoutSink(format: .json, configuration: config)
+        var config = LogConfiguration.recommended(minLevel: .debug)
+        config.deterministicJSON = true
+        let sink = StdoutSink(format: .jsonl, configuration: config)
         bootstrap(configuration: config, sinks: [sink])
     }
 
