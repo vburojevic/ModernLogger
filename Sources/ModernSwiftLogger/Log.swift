@@ -69,11 +69,16 @@ public struct Log: Sendable {
         function: String = #function,
         line: UInt = #line
     ) {
+        var meta = metadata()
+        meta = mergeReservedMetadata(meta, fields: [
+            LogReservedMetadata.kind: .string(LogReservedMetadata.kindMarker),
+            LogReservedMetadata.name: .string(key)
+        ])
         log(
             .notice,
             "MARKER \(key)",
             tags: [.marker(key)],
-            metadata: metadata(),
+            metadata: meta,
             fileID: fileID,
             function: function,
             line: line
@@ -285,7 +290,6 @@ public struct Log: Sendable {
 }
 
 /// Correlation scope helper (tags + metadata bound to a logger).
-/// Correlation scope helper (tags + metadata bound to a logger).
 public struct LogScope: Sendable {
     public let id: String
     public let logger: Log
@@ -301,6 +305,7 @@ public struct LogScope: Sendable {
 public struct LogSpan: Sendable {
     private let logger: Log
     private let name: String
+    private let spanID: String
     private let level: LogLevel
     private let start: DispatchTime
     private let tags: [LogTag]
@@ -335,6 +340,7 @@ public struct LogSpan: Sendable {
     ) {
         self.logger = logger
         self.name = name
+        self.spanID = UUID().uuidString
         self.level = level
         self.tags = tags
         self.metadata = metadata
@@ -343,7 +349,15 @@ public struct LogSpan: Sendable {
         self.line = line
         self.start = DispatchTime.now()
 
-        logger.log(level, "SPAN_START \(name)", tags: tags, metadata: metadata, fileID: fileID, function: function, line: line)
+        var meta = metadata
+        meta = mergeReservedMetadata(meta, fields: [
+            LogReservedMetadata.kind: .string(LogReservedMetadata.kindSpan),
+            LogReservedMetadata.name: .string(name),
+            LogReservedMetadata.phase: .string(LogReservedMetadata.phaseStart),
+            LogReservedMetadata.spanID: .string(spanID),
+            LogReservedMetadata.startLocation: locationMetadata(fileID: fileID, function: function, line: line)
+        ])
+        logger.log(level, "SPAN_START \(name)", tags: tags, metadata: meta, fileID: fileID, function: function, line: line)
     }
 
     public func end(
@@ -365,9 +379,39 @@ public struct LogSpan: Sendable {
         if let error {
             meta["error"] = .error(error)
         }
+        meta = mergeReservedMetadata(meta, fields: [
+            LogReservedMetadata.kind: .string(LogReservedMetadata.kindSpan),
+            LogReservedMetadata.name: .string(name),
+            LogReservedMetadata.phase: .string(LogReservedMetadata.phaseEnd),
+            LogReservedMetadata.spanID: .string(spanID),
+            LogReservedMetadata.startLocation: locationMetadata(fileID: self.fileID, function: self.function, line: self.line),
+            LogReservedMetadata.endLocation: locationMetadata(fileID: fileID, function: function, line: line)
+        ])
 
         logger.log(level, "SPAN_END \(name)", tags: tags, metadata: meta, fileID: fileID, function: function, line: line)
     }
+}
+
+private func mergeReservedMetadata(_ metadata: LogMetadata, fields: [String: LogValue]) -> LogMetadata {
+    var meta = metadata
+    if case .object(let existing)? = meta[LogReservedMetadata.key] {
+        var merged = existing
+        for (key, value) in fields {
+            merged[key] = value
+        }
+        meta[LogReservedMetadata.key] = .object(merged)
+    } else {
+        meta[LogReservedMetadata.key] = .object(fields)
+    }
+    return meta
+}
+
+private func locationMetadata(fileID: String, function: String, line: UInt) -> LogValue {
+    .object([
+        "file_id": .string(fileID),
+        "function": .string(function),
+        "line": .int(Int64(line))
+    ])
 }
 
 public extension Log {

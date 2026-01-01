@@ -22,6 +22,10 @@ log.forBug("JIRA-1234").error("Bad response")
 log.marker("SEARCH_PIPELINE:fetch")
 ```
 
+Reserved metadata:
+
+Markers and spans include machine-parseable fields under `metadata["_msl"]`.
+
 ## Sinks
 
 - OSLog (Unified Logging)

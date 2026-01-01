@@ -16,7 +16,7 @@ Use per‑category or per‑tag minimum levels and rate limits.
 
 ## How should AI agents tag features and bugs?
 
-Use `log.forFeature("Search")` and `log.forBug("JIRA-1234")` and add markers like `log.marker("SEARCH_PIPELINE:fetch")` to split phases.
+Use `log.forFeature("Search")` and `log.forBug("JIRA-1234")` and add markers like `log.marker("SEARCH_PIPELINE:fetch")` to split phases. Marker/span events also include reserved metadata under `metadata["_msl"]` for machine parsing.
 
 ## Where are JSONL files written?
 

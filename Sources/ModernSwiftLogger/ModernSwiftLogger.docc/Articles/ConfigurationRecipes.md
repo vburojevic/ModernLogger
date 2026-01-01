@@ -15,6 +15,7 @@ LogSystem.bootstrap(configuration: config, sinks: sinks)
 
 ```swift
 var config = LogConfiguration.recommended()
+config.deterministicJSON = true
 let sink = StdoutSink(format: .json, configuration: config)
 LogSystem.bootstrap(configuration: config, sinks: [sink])
 ```

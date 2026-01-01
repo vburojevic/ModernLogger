@@ -9,6 +9,8 @@
 - Added DocC articles (Sinks, Filtering, Redaction, File Sink, Event Stream, In-app Viewer, Migration, Production Checklist, Config Recipes, FAQ).
 - Added `modernswiftlogger-cli` for help and sample output.
 - Removed implicit config and sink configuration from env/plist; only opt-in environment overrides remain via `LogConfiguration.OverrideSource`.
+- Added reserved metadata namespace (`_msl`) for marker/span events and deterministic JSON output option.
+- Expanded CLI with schema/env/tail/filter/stats/sample commands.
 
 ## Versioning
 

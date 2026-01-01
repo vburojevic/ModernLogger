@@ -18,6 +18,7 @@ let sink = FileSink(
     url: FileSink.defaultURL(),
     rotation: rotation,
     buffering: buffering,
-    fileOptions: options
+    fileOptions: options,
+    deterministicJSON: true
 )
 ```

@@ -108,10 +108,12 @@ log.info("Payload",
 ## Sinks
 
 - `OSLogSink`: default on supported OSes
-- `StdoutSink`: text or JSON (tests/CI/agents)
+- `StdoutSink`: text or JSONL (tests/CI/agents)
 - `FileSink`: JSONL with rotation + compression + buffering
 - `InMemorySink`: ring buffer for tests and support workflows
 - `TestSink`: awaitable helpers for tests
+
+Stdout formats: `.text`, `.json`, `.jsonl` (JSONL output).
 
 Per-sink filters:
 
@@ -198,6 +200,13 @@ var config = LogConfiguration.default
 config.metadataMergePolicy = .keepExisting // or .replaceWithNew
 ```
 
+### Deterministic JSON
+
+```swift
+var config = LogConfiguration.default
+config.deterministicJSON = true
+```
+
 ## File sink options
 
 ```swift
@@ -259,7 +268,7 @@ MODERNSWIFTLOGGER_EXCLUDE_TAGS=trace
 MODERNSWIFTLOGGER_OSLOG_PRIVACY=private       # or "public"
 MODERNSWIFTLOGGER_SOURCE=1
 MODERNSWIFTLOGGER_CONTEXT=1
-MODERNSWIFTLOGGER_TEXT_STYLE=compact          # or "pretty"
+MODERNSWIFTLOGGER_TEXT_STYLE=compact          # or "verbose" (pretty alias)
 MODERNSWIFTLOGGER_REDACT_KEYS=password,token,authorization
 MODERNSWIFTLOGGER_BUFFER=1024
 MODERNSWIFTLOGGER_CATEGORY_LEVELS=Networking=debug,UI=info
@@ -270,11 +279,12 @@ MODERNSWIFTLOGGER_CATEGORY_RATE_LIMITS=Networking=10
 MODERNSWIFTLOGGER_TAG_RATE_LIMITS=feature:Checkout=5
 MODERNSWIFTLOGGER_MERGE_POLICY=keepExisting   # or replaceWithNew
 MODERNSWIFTLOGGER_MAX_MESSAGE_BYTES=1024
+MODERNSWIFTLOGGER_DETERMINISTIC_JSON=1
 ```
 
 ## For AI agents
 
-ModernSwiftLogger is agent-friendly: it supports JSONL output, stable tag conventions, and a tiny CLI for discovery.
+ModernSwiftLogger is agent-friendly: it supports JSONL output, stable tag conventions, a reserved metadata namespace, and a CLI for discovery and analysis.
 
 Agent tips:
 - Use feature tags for traceability: `log.forFeature("Search")`
@@ -297,12 +307,18 @@ CLI:
 ```bash
 swift run modernswiftlogger-cli --help
 swift run modernswiftlogger-cli --sample
+swift run modernswiftlogger-cli schema
+swift run modernswiftlogger-cli env
+swift run modernswiftlogger-cli tail /path/to/log.jsonl --lines 200 --follow
+swift run modernswiftlogger-cli filter --file /path/to/log.jsonl --min-level error --feature Search
+swift run modernswiftlogger-cli stats --file /path/to/log.jsonl --top-tags 20
 ```
 
 Recommended agent bootstrap (deterministic JSONL to stdout):
 
 ```swift
-let config = LogConfiguration.recommended(minLevel: .debug)
+var config = LogConfiguration.recommended(minLevel: .debug)
+config.deterministicJSON = true
 let sink = StdoutSink(format: .json, configuration: config)
 LogSystem.bootstrap(configuration: config, sinks: [sink])
 ```
@@ -315,9 +331,28 @@ config.applyOverrides([.environment()])
 LogSystem.bootstrap(configuration: config, sinks: [StdoutSink(format: .json, configuration: config)])
 ```
 
+Reserved metadata for agents:
+
+ModernSwiftLogger emits machine-parseable fields under `metadata["_msl"]` for markers and spans:
+
+```json
+{
+  "_msl": {
+    "kind": "marker|span",
+    "name": "SEARCH_PIPELINE:fetch",
+    "phase": "start|end",
+    "span_id": "UUID",
+    "start_location": { "file_id": "...", "function": "...", "line": 123 },
+    "end_location": { "file_id": "...", "function": "...", "line": 456 }
+  }
+}
+```
+
 ## JSONL event schema
 
 Each line is a single JSON object matching `LogEvent`:
+
+Note: Stdout JSON output is JSONL (one object per line).
 
 - `schemaVersion`, `id`, `timestamp`
 - `level`, `subsystem`, `category`, `message`

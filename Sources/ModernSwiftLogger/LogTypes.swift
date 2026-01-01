@@ -420,6 +420,21 @@ public struct LogEvent: Sendable, Codable {
     }
 }
 
+/// Reserved metadata namespace for machine-parseable event details.
+public enum LogReservedMetadata {
+    public static let key = "_msl"
+    public static let kind = "kind"
+    public static let name = "name"
+    public static let phase = "phase"
+    public static let spanID = "span_id"
+    public static let startLocation = "start_location"
+    public static let endLocation = "end_location"
+    public static let kindMarker = "marker"
+    public static let kindSpan = "span"
+    public static let phaseStart = "start"
+    public static let phaseEnd = "end"
+}
+
 /// Per-task and per-logger context (tags + metadata).
 /// Context bound to a logger or task (tags + metadata).
 public struct LogContext: Sendable, Codable {
@@ -521,6 +536,7 @@ public struct LogFilter: Sendable, Codable {
 public enum StdoutFormat: String, Sendable, Codable {
     case text
     case json
+    case jsonl
 }
 
 /// Formats log events for text sinks.
@@ -584,6 +600,9 @@ public struct LogConfiguration: Sendable, Codable {
     /// Optional maximum UTF-8 byte length for log messages.
     public var maxMessageBytes: Int?
 
+    /// Stable JSON output (sorted keys) for agent-friendly diffing.
+    public var deterministicJSON: Bool
+
     /// Convenience: set a per-tag minimum level.
     public mutating func setTagMinimumLevel(_ level: LogLevel, for tag: LogTag) {
         tagMinimumLevels[tag.rawValue] = level
@@ -640,7 +659,8 @@ public struct LogConfiguration: Sendable, Codable {
         rateLimit: RateLimit?,
         categoryRateLimits: [String: RateLimit],
         tagRateLimits: [String: RateLimit] = [:],
-        maxMessageBytes: Int? = nil
+        maxMessageBytes: Int? = nil,
+        deterministicJSON: Bool = false
     ) {
         self.filter = filter
         self.oslogPrivacy = oslogPrivacy
@@ -656,6 +676,7 @@ public struct LogConfiguration: Sendable, Codable {
         self.categoryRateLimits = categoryRateLimits
         self.tagRateLimits = tagRateLimits
         self.maxMessageBytes = maxMessageBytes
+        self.deterministicJSON = deterministicJSON
     }
 
     public static var `default`: LogConfiguration {
@@ -689,7 +710,8 @@ public struct LogConfiguration: Sendable, Codable {
             rateLimit: nil,
             categoryRateLimits: [:],
             tagRateLimits: [:],
-            maxMessageBytes: nil
+            maxMessageBytes: nil,
+            deterministicJSON: false
         )
     }
 
@@ -713,7 +735,8 @@ public struct LogConfiguration: Sendable, Codable {
             rateLimit: nil,
             categoryRateLimits: [:],
             tagRateLimits: [:],
-            maxMessageBytes: 4096
+            maxMessageBytes: 4096,
+            deterministicJSON: false
         )
         return config
     }
@@ -753,8 +776,8 @@ public struct LogConfiguration: Sendable, Codable {
             includeExecutionContext = b
         }
 
-        if let s = env["\(prefix)TEXT_STYLE"]?.lowercased(),
-           let st = LogTextStyle(rawValue: s) {
+        if let s = env["\(prefix)TEXT_STYLE"],
+           let st = parseTextStyle(s) {
             textStyle = st
         }
 
@@ -788,13 +811,17 @@ public struct LogConfiguration: Sendable, Codable {
             tagRateLimits = parseTagRateLimits(s)
         }
 
-        if let s = env["\(prefix)MERGE_POLICY"]?.lowercased(),
-           let policy = LogContext.MergePolicy(rawValue: s) {
+        if let s = env["\(prefix)MERGE_POLICY"],
+           let policy = parseMergePolicy(s) {
             metadataMergePolicy = policy
         }
 
         if let s = env["\(prefix)MAX_MESSAGE_BYTES"], let n = Int(s), n > 0 {
             maxMessageBytes = n
+        }
+
+        if let s = env["\(prefix)DETERMINISTIC_JSON"], let b = parseBool(s) {
+            deterministicJSON = b
         }
     }
 
@@ -811,6 +838,30 @@ public struct LogConfiguration: Sendable, Codable {
         case "1", "true", "yes", "y", "on": return true
         case "0", "false", "no", "n", "off": return false
         default: return nil
+        }
+    }
+
+    private func parseMergePolicy(_ s: String) -> LogContext.MergePolicy? {
+        let v = s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch v {
+        case "keepexisting", "keep_existing", "keep-existing":
+            return .keepExisting
+        case "replacewithnew", "replace_with_new", "replace-with-new":
+            return .replaceWithNew
+        default:
+            return nil
+        }
+    }
+
+    private func parseTextStyle(_ s: String) -> LogTextStyle? {
+        let v = s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch v {
+        case "compact":
+            return .compact
+        case "verbose", "pretty":
+            return .verbose
+        default:
+            return nil
         }
     }
 

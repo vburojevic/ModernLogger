@@ -109,7 +109,9 @@ public actor OSLogSink: LogSink {
 #endif
 
 /// Stdout sink (good for tests/CI/agents).
-/// Stdout/stderr sink (text or JSON).
+/// Stdout/stderr sink (text or JSONL).
+public typealias LogLineWriter = @Sendable (_ line: String, _ isError: Bool) throws -> Void
+
 public actor StdoutSink: LogSink {
     private let format: StdoutFormat
     private let configuration: LogConfiguration
@@ -117,13 +119,9 @@ public actor StdoutSink: LogSink {
     public let filter: LogFilter?
     public let redactionKeys: Set<String>?
     private let onError: LogSinkErrorHandler?
+    private let writer: LogLineWriter
 
-    private let encoder: JSONEncoder = {
-        let enc = JSONEncoder()
-        enc.dateEncodingStrategy = .iso8601
-        enc.outputFormatting = [.withoutEscapingSlashes]
-        return enc
-    }()
+    private let encoder: JSONEncoder
 
     public init(
         format: StdoutFormat = .text,
@@ -131,7 +129,8 @@ public actor StdoutSink: LogSink {
         formatter: any LogFormatter = DefaultLogFormatter(),
         filter: LogFilter? = nil,
         redactionKeys: Set<String>? = nil,
-        onError: LogSinkErrorHandler? = nil
+        onError: LogSinkErrorHandler? = nil,
+        writer: LogLineWriter? = nil
     ) {
         self.format = format
         self.configuration = configuration
@@ -139,6 +138,8 @@ public actor StdoutSink: LogSink {
         self.filter = filter
         self.redactionKeys = redactionKeys
         self.onError = onError
+        self.writer = writer ?? StdoutSink.defaultWriter
+        self.encoder = StdoutSink.makeJSONEncoder(deterministic: configuration.deterministicJSON)
     }
 
     public func emit(_ event: LogEvent) async {
@@ -146,7 +147,7 @@ public actor StdoutSink: LogSink {
         switch format {
         case .text:
             line = formatter.format(event, configuration: configuration)
-        case .json:
+        case .json, .jsonl:
             do {
                 let data = try encoder.encode(event)
                 line = String(decoding: data, as: UTF8.self)
@@ -157,9 +158,29 @@ public actor StdoutSink: LogSink {
         }
 
         // Write to stdout/stderr (errors -> stderr).
-        let target = (event.level >= .error) ? FileHandle.standardError : FileHandle.standardOutput
-        if let data = (line + "\n").data(using: .utf8) {
-            do { try target.write(contentsOf: data) } catch { onError?(error) }
+        let isError = event.level >= .error
+        do {
+            try writer(line + "\n", isError)
+        } catch {
+            onError?(error)
+        }
+    }
+
+    private static func makeJSONEncoder(deterministic: Bool) -> JSONEncoder {
+        let enc = JSONEncoder()
+        enc.dateEncodingStrategy = .iso8601
+        if deterministic {
+            enc.outputFormatting = [.withoutEscapingSlashes, .sortedKeys]
+        } else {
+            enc.outputFormatting = [.withoutEscapingSlashes]
+        }
+        return enc
+    }
+
+    private static func defaultWriter(_ line: String, _ isError: Bool) throws {
+        let target = isError ? FileHandle.standardError : FileHandle.standardOutput
+        if let data = line.data(using: .utf8) {
+            try target.write(contentsOf: data)
         }
     }
 }
@@ -254,13 +275,10 @@ public actor FileSink: LogSink {
     private var currentCreatedAt: Date?
     private var buffer = Data()
     private var flushTask: Task<Void, Never>?
+    private var rotationCounter: UInt64 = 0
 
-    private let encoder: JSONEncoder = {
-        let enc = JSONEncoder()
-        enc.dateEncodingStrategy = .iso8601
-        enc.outputFormatting = [.withoutEscapingSlashes]
-        return enc
-    }()
+    private let encoder: JSONEncoder
+    private let deterministicJSON: Bool
 
     public init(
         url: URL,
@@ -269,6 +287,7 @@ public actor FileSink: LogSink {
         filter: LogFilter? = nil,
         redactionKeys: Set<String>? = nil,
         fileOptions: FileOptions = FileOptions(),
+        deterministicJSON: Bool = false,
         onError: LogSinkErrorHandler? = nil
     ) {
         self.url = url
@@ -278,6 +297,30 @@ public actor FileSink: LogSink {
         self.redactionKeys = redactionKeys
         self.fileOptions = fileOptions
         self.onError = onError
+        self.deterministicJSON = deterministicJSON
+        self.encoder = FileSink.makeJSONEncoder(deterministic: deterministicJSON)
+    }
+
+    public init(
+        url: URL,
+        configuration: LogConfiguration,
+        rotation: Rotation = Rotation(),
+        buffering: Buffering = Buffering(),
+        filter: LogFilter? = nil,
+        redactionKeys: Set<String>? = nil,
+        fileOptions: FileOptions = FileOptions(),
+        onError: LogSinkErrorHandler? = nil
+    ) {
+        self.init(
+            url: url,
+            rotation: rotation,
+            buffering: buffering,
+            filter: filter,
+            redactionKeys: redactionKeys,
+            fileOptions: fileOptions,
+            deterministicJSON: configuration.deterministicJSON,
+            onError: onError
+        )
     }
 
     public static func defaultURL(fileName: String = "modernswiftlogger.jsonl") -> URL {
@@ -349,7 +392,7 @@ public actor FileSink: LogSink {
             FileManager.default.createFile(atPath: url.path, contents: nil)
             currentCreatedAt = Date()
         }
-        applyFileOptions()
+        applyFileOptions(to: url)
 
         let handle = try FileHandle(forWritingTo: url)
         if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path) {
@@ -389,8 +432,9 @@ public actor FileSink: LogSink {
             .replacingOccurrences(of: ":", with: "")
         let baseName = url.deletingPathExtension().lastPathComponent
         let ext = url.pathExtension.isEmpty ? "jsonl" : url.pathExtension
+        rotationCounter &+= 1
         let rotated = url.deletingLastPathComponent()
-            .appendingPathComponent("\(baseName)-\(ts).\(ext)")
+            .appendingPathComponent("\(baseName)-\(ts)-\(rotationCounter).\(ext)")
 
         // If move fails (e.g. file missing), just continue and recreate.
         if FileManager.default.fileExists(atPath: url.path) {
@@ -398,6 +442,8 @@ public actor FileSink: LogSink {
         }
 
         let finalRotated = compressIfNeeded(rotated)
+        applyFileOptions(to: rotated)
+        applyFileOptions(to: finalRotated)
 
         // Purge old rotations.
         purgeOldRotations(baseName: baseName, ext: ext)
@@ -409,10 +455,11 @@ public actor FileSink: LogSink {
         currentCreatedAt = Date()
     }
 
-    private func applyFileOptions() {
+    private func applyFileOptions(to targetURL: URL) {
+        guard FileManager.default.fileExists(atPath: targetURL.path) else { return }
         if let protection = fileOptions.protection?.fileProtectionType {
             do {
-                try FileManager.default.setAttributes([.protectionKey: protection], ofItemAtPath: url.path)
+                try FileManager.default.setAttributes([.protectionKey: protection], ofItemAtPath: targetURL.path)
             } catch {
                 onError?(error)
             }
@@ -421,12 +468,23 @@ public actor FileSink: LogSink {
             var values = URLResourceValues()
             values.isExcludedFromBackup = true
             do {
-                var fileURL = url
+                var fileURL = targetURL
                 try fileURL.setResourceValues(values)
             } catch {
                 onError?(error)
             }
         }
+    }
+
+    private static func makeJSONEncoder(deterministic: Bool) -> JSONEncoder {
+        let enc = JSONEncoder()
+        enc.dateEncodingStrategy = .iso8601
+        if deterministic {
+            enc.outputFormatting = [.withoutEscapingSlashes, .sortedKeys]
+        } else {
+            enc.outputFormatting = [.withoutEscapingSlashes]
+        }
+        return enc
     }
 
     private func purgeOldRotations(baseName: String, ext: String) {
@@ -608,7 +666,6 @@ public actor InMemorySink: LogSink {
     }
 }
 
-/// Test sink with awaitable helpers.
 /// Test sink with awaitable helpers.
 public actor TestSink: LogSink {
     public let filter: LogFilter?
