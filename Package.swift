@@ -14,9 +14,11 @@ let package = Package(
     ],
     products: [
         .library(name: "ModernLogger", targets: ["ModernLogger"]),
+        .executable(name: "modernlogger-cli", targets: ["ModernLoggerCLI"]),
     ],
     targets: [
         .target(name: "ModernLogger"),
+        .executableTarget(name: "ModernLoggerCLI", dependencies: ["ModernLogger"]),
         .testTarget(name: "ModernLoggerTests", dependencies: ["ModernLogger"]),
     ]
 )

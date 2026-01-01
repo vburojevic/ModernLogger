@@ -402,6 +402,21 @@ See `CONTRIBUTING.md`.
 
 - `Examples/SwiftUIDemo/README.md`
 
+## For AI agents (CLI + usage)
+
+The package includes a tiny CLI for discovery:
+
+```bash
+swift run modernlogger-cli --help
+swift run modernlogger-cli --sample
+```
+
+Use the CLI output to learn environment variables, and then bootstrap in code:
+
+```swift
+LogSystem.bootstrapRecommendedFromEnvironment()
+```
+
 ## Support & troubleshooting
 
 - No logs? Ensure you called `LogSystem.bootstrap...()` before logging.
