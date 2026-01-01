@@ -14,6 +14,10 @@ Use `redactedMetadataKeys` with patterns like `auth.*` or `*.token`.
 
 Use per‑category or per‑tag minimum levels and rate limits.
 
+## How should AI agents tag features and bugs?
+
+Use `log.forFeature("Search")` and `log.forBug("JIRA-1234")` and add markers like `log.marker("SEARCH_PIPELINE:fetch")` to split phases.
+
 ## Where are JSONL files written?
 
 `FileSink.defaultURL()` writes to Caches by default.

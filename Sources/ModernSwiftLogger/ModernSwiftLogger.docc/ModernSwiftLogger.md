@@ -12,6 +12,16 @@ let log = Log(category: "Networking")
 log.info("Request started", metadata: ["url": .string(url.absoluteString)])
 ```
 
+## AI agent tagging
+
+Use feature and bug tags for traceable logs and debugging:
+
+```swift
+log.forFeature("Search").info("Query started")
+log.forBug("JIRA-1234").error("Bad response")
+log.marker("SEARCH_PIPELINE:fetch")
+```
+
 ## Sinks
 
 - OSLog (Unified Logging)

@@ -19,6 +19,11 @@ QUICK START:
   1) swift run modernswiftlogger-cli --help
   2) In your app: LogSystem.bootstrapRecommended()
 
+TAGGING FOR AGENTS:
+  log.forFeature("Search").info("Query started")
+  log.forBug("JIRA-1234").error("Bad response")
+  log.marker("SEARCH_PIPELINE:fetch")
+
 CONFIGURATION SOURCES:
   Environment overrides are opt-in. Example:
     var config = LogConfiguration.recommended()

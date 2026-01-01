@@ -274,7 +274,23 @@ MODERNSWIFTLOGGER_MAX_MESSAGE_BYTES=1024
 
 ## For AI agents
 
-ModernSwiftLogger is agent-friendly: it supports JSONL output and exposes a tiny CLI for discovery.
+ModernSwiftLogger is agent-friendly: it supports JSONL output, stable tag conventions, and a tiny CLI for discovery.
+
+Agent tips:
+- Use feature tags for traceability: `log.forFeature("Search")`
+- Use bug tags for investigations: `log.forBug("JIRA-1234")`
+- Add markers to split phases: `log.marker("SEARCH_PIPELINE:fetch")`
+- Keep categories stable (one per subsystem area)
+- Attach inputs and outcomes as metadata for grounding
+
+Example tagging:
+
+```swift
+let log = Log(category: "Search")
+log.forFeature("Search").info("Query started", metadata: ["query": .string(query)])
+log.forBug("JIRA-1234").error("Bad response", metadata: ["status": .int(500)])
+log.marker("SEARCH_PIPELINE:fetch")
+```
 
 CLI:
 
