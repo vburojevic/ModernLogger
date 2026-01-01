@@ -6,7 +6,7 @@ import Darwin
 
 // MARK: - Public Types
 
-/// Log severity used by ModernLogger (more granular than OSLogType).
+/// Log severity used by ModernSwiftLogger (more granular than OSLogType).
 /// Severity level for log events.
 public enum LogLevel: Int, Sendable, CaseIterable, Comparable, Codable {
     case trace = 0
@@ -606,7 +606,7 @@ public struct LogConfiguration: Sendable, Codable {
 
     /// Sources for applying configuration overrides.
     public enum OverrideSource: Sendable {
-        case environment(prefix: String = "MODERNLOGGER_")
+        case environment(prefix: String = "MODERNSWIFTLOGGER_")
     }
 
     /// Apply overrides in order; later sources win.

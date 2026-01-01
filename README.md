@@ -1,6 +1,6 @@
-# ModernLogger
+# ModernSwiftLogger
 
-ModernLogger is a multi-sink, structured logger for Apple platforms. It keeps logs consistent across OSLog, JSONL files, and stdout while giving you first-class filtering, tags, rate limiting, and an in-app event stream.
+ModernSwiftLogger is a multi-sink, structured logger for Apple platforms. It keeps logs consistent across OSLog, JSONL files, and stdout while giving you first-class filtering, tags, rate limiting, and an in-app event stream.
 
 ## Highlights
 
@@ -22,7 +22,7 @@ ModernLogger is a multi-sink, structured logger for Apple platforms. It keeps lo
 Add the package and import:
 
 ```swift
-import ModernLogger
+import ModernSwiftLogger
 ```
 
 ## Quick start
@@ -251,36 +251,36 @@ LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
 Available keys:
 
 ```
-MODERNLOGGER_MIN_LEVEL=debug
-MODERNLOGGER_INCLUDE_CATEGORIES=Networking,UI
-MODERNLOGGER_EXCLUDE_CATEGORIES=Spammy
-MODERNLOGGER_INCLUDE_TAGS=feature:Checkout,bug:JIRA-1234
-MODERNLOGGER_EXCLUDE_TAGS=trace
-MODERNLOGGER_OSLOG_PRIVACY=private       # or "public"
-MODERNLOGGER_SOURCE=1
-MODERNLOGGER_CONTEXT=1
-MODERNLOGGER_TEXT_STYLE=compact          # or "pretty"
-MODERNLOGGER_REDACT_KEYS=password,token,authorization
-MODERNLOGGER_BUFFER=1024
-MODERNLOGGER_CATEGORY_LEVELS=Networking=debug,UI=info
-MODERNLOGGER_TAG_LEVELS=feature:Checkout=error
-MODERNLOGGER_SAMPLE_RATE=0.25
-MODERNLOGGER_RATE_LIMIT=50
-MODERNLOGGER_CATEGORY_RATE_LIMITS=Networking=10
-MODERNLOGGER_TAG_RATE_LIMITS=feature:Checkout=5
-MODERNLOGGER_MERGE_POLICY=keepExisting   # or replaceWithNew
-MODERNLOGGER_MAX_MESSAGE_BYTES=1024
+MODERNSWIFTLOGGER_MIN_LEVEL=debug
+MODERNSWIFTLOGGER_INCLUDE_CATEGORIES=Networking,UI
+MODERNSWIFTLOGGER_EXCLUDE_CATEGORIES=Spammy
+MODERNSWIFTLOGGER_INCLUDE_TAGS=feature:Checkout,bug:JIRA-1234
+MODERNSWIFTLOGGER_EXCLUDE_TAGS=trace
+MODERNSWIFTLOGGER_OSLOG_PRIVACY=private       # or "public"
+MODERNSWIFTLOGGER_SOURCE=1
+MODERNSWIFTLOGGER_CONTEXT=1
+MODERNSWIFTLOGGER_TEXT_STYLE=compact          # or "pretty"
+MODERNSWIFTLOGGER_REDACT_KEYS=password,token,authorization
+MODERNSWIFTLOGGER_BUFFER=1024
+MODERNSWIFTLOGGER_CATEGORY_LEVELS=Networking=debug,UI=info
+MODERNSWIFTLOGGER_TAG_LEVELS=feature:Checkout=error
+MODERNSWIFTLOGGER_SAMPLE_RATE=0.25
+MODERNSWIFTLOGGER_RATE_LIMIT=50
+MODERNSWIFTLOGGER_CATEGORY_RATE_LIMITS=Networking=10
+MODERNSWIFTLOGGER_TAG_RATE_LIMITS=feature:Checkout=5
+MODERNSWIFTLOGGER_MERGE_POLICY=keepExisting   # or replaceWithNew
+MODERNSWIFTLOGGER_MAX_MESSAGE_BYTES=1024
 ```
 
 ## For AI agents
 
-ModernLogger is agent-friendly: it supports JSONL output and exposes a tiny CLI for discovery.
+ModernSwiftLogger is agent-friendly: it supports JSONL output and exposes a tiny CLI for discovery.
 
 CLI:
 
 ```bash
-swift run modernlogger-cli --help
-swift run modernlogger-cli --sample
+swift run modernswiftlogger-cli --help
+swift run modernswiftlogger-cli --sample
 ```
 
 Recommended agent bootstrap (deterministic JSONL to stdout):

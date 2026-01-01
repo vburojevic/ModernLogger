@@ -1,6 +1,6 @@
 # Sinks
 
-ModernLogger supports multiple sinks to route events to different destinations.
+ModernSwiftLogger supports multiple sinks to route events to different destinations.
 
 ## Built-in sinks
 

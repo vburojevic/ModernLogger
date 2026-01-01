@@ -1,10 +1,10 @@
 # SwiftUI Demo
 
-Minimal example for integrating ModernLogger in a SwiftUI app.
+Minimal example for integrating ModernSwiftLogger in a SwiftUI app.
 
 ```swift
 import SwiftUI
-import ModernLogger
+import ModernSwiftLogger
 
 @main
 struct DemoApp: App {

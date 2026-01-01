@@ -182,7 +182,7 @@ public enum LogSystem {
             let override = defaultSubsystemOverride
             lock.unlock()
             if let override, !override.isEmpty { return override }
-            return Bundle.main.bundleIdentifier ?? "ModernLogger"
+            return Bundle.main.bundleIdentifier ?? "ModernSwiftLogger"
         }
 
         func setDefaultSubsystem(_ subsystem: String?) {

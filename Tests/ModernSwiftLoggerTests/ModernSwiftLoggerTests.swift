@@ -1,8 +1,8 @@
 #if canImport(XCTest)
 import XCTest
-@testable import ModernLogger
+@testable import ModernSwiftLogger
 
-final class ModernLoggerTests: XCTestCase {
+final class ModernSwiftLoggerTests: XCTestCase {
     private struct TestError: Error {}
     private struct EnvSnapshot {
         let value: String?
@@ -25,8 +25,8 @@ final class ModernLoggerTests: XCTestCase {
     }
 
     func testFileSinkDefaultURL() throws {
-        let url = FileSink.defaultURL(fileName: "modernlogger-test.jsonl")
-        XCTAssertTrue(url.lastPathComponent.contains("modernlogger-test"))
+        let url = FileSink.defaultURL(fileName: "modernswiftlogger-test.jsonl")
+        XCTAssertTrue(url.lastPathComponent.contains("modernswiftlogger-test"))
     }
 
     func testTagMinimumLevelOverrides() async throws {
@@ -181,7 +181,7 @@ final class ModernLoggerTests: XCTestCase {
 
     func testFileSinkWrites() async throws {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-        let url = dir.appendingPathComponent("modernlogger-\(UUID().uuidString).jsonl")
+        let url = dir.appendingPathComponent("modernswiftlogger-\(UUID().uuidString).jsonl")
         let sink = FileSink(url: url, buffering: .init(maxBytes: 1, flushInterval: 0))
         LogSystem.bootstrap(configuration: .default, sinks: [sink])
 
@@ -196,7 +196,7 @@ final class ModernLoggerTests: XCTestCase {
 
     func testFileSinkRotationAndCompression() async throws {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-        let url = dir.appendingPathComponent("modernlogger-\(UUID().uuidString).jsonl")
+        let url = dir.appendingPathComponent("modernswiftlogger-\(UUID().uuidString).jsonl")
         let rotation = FileSink.Rotation(maxBytes: 256 * 1024, maxFiles: 2, compression: .none)
         let sink = FileSink(url: url, rotation: rotation, buffering: .init(maxBytes: 4 * 1024, flushInterval: 0))
         LogSystem.bootstrap(configuration: .default, sinks: [sink])
@@ -221,7 +221,7 @@ final class ModernLoggerTests: XCTestCase {
     func testFileSinkRotationWithCompression() async throws {
         #if canImport(Compression)
         let dir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-        let url = dir.appendingPathComponent("modernlogger-\(UUID().uuidString).jsonl")
+        let url = dir.appendingPathComponent("modernswiftlogger-\(UUID().uuidString).jsonl")
         let rotation = FileSink.Rotation(maxBytes: 256 * 1024, maxFiles: 2, compression: .zlib)
         let sink = FileSink(url: url, rotation: rotation, buffering: .init(maxBytes: 4 * 1024, flushInterval: 0))
         LogSystem.bootstrap(configuration: .default, sinks: [sink])
@@ -247,7 +247,7 @@ final class ModernLoggerTests: XCTestCase {
     }
 
     func testOverridesApplyEnvironment() async throws {
-        let prefix = "MODERNLOGGER_"
+        let prefix = "MODERNSWIFTLOGGER_"
         let previous = EnvSnapshot(value: getenv("\(prefix)MIN_LEVEL").flatMap { String(cString: $0) })
         setenv("\(prefix)MIN_LEVEL", "error", 1)
         defer {

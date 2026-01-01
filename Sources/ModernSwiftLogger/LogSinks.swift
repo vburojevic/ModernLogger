@@ -280,7 +280,7 @@ public actor FileSink: LogSink {
         self.onError = onError
     }
 
-    public static func defaultURL(fileName: String = "modernlogger.jsonl") -> URL {
+    public static func defaultURL(fileName: String = "modernswiftlogger.jsonl") -> URL {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         return base.appendingPathComponent(fileName, isDirectory: false)

@@ -4,7 +4,7 @@ Use the event stream to build a lightweight in-app log viewer.
 
 ```swift
 import SwiftUI
-import ModernLogger
+import ModernSwiftLogger
 
 struct LogViewer: View {
     @State private var events: [LogEvent] = []

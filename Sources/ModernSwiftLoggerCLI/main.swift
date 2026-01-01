@@ -1,22 +1,22 @@
 import Foundation
-import ModernLogger
+import ModernSwiftLogger
 
 private let usage = """
-ModernLogger CLI
+ModernSwiftLogger CLI
 ================
 
 USAGE:
-  modernlogger-cli [--help] [--sample]
+  modernswiftlogger-cli [--help] [--sample]
 
 DESCRIPTION:
-  A tiny helper for AI agents and humans to discover ModernLogger.
+  A tiny helper for AI agents and humans to discover ModernSwiftLogger.
 
 OPTIONS:
   --help      Show this help text.
   --sample    Print a sample JSONL LogEvent to stdout.
 
 QUICK START:
-  1) swift run modernlogger-cli --help
+  1) swift run modernswiftlogger-cli --help
   2) In your app: LogSystem.bootstrapRecommended()
 
 CONFIGURATION SOURCES:
@@ -25,7 +25,7 @@ CONFIGURATION SOURCES:
     config.applyOverrides([.environment()])
     LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
 
-ENVIRONMENT VARIABLES (prefix: MODERNLOGGER_):
+ENVIRONMENT VARIABLES (prefix: MODERNSWIFTLOGGER_):
   MIN_LEVEL, INCLUDE_CATEGORIES, EXCLUDE_CATEGORIES
   INCLUDE_TAGS, EXCLUDE_TAGS
   OSLOG_PRIVACY, SOURCE, CONTEXT, TEXT_STYLE
@@ -44,7 +44,7 @@ private func printSample() {
         level: .info,
         subsystem: "com.example.app",
         category: "Example",
-        message: "Hello from ModernLogger CLI",
+        message: "Hello from ModernSwiftLogger CLI",
         tags: ["feature:Demo"],
         metadata: ["answer": .int(42), "ok": .bool(true)],
         source: nil,

@@ -1,11 +1,11 @@
-# ModernLogger
+# ModernSwiftLogger
 
 A modern, multi-sink, structured logger for Apple platforms.
 
 ## Getting Started
 
 ```swift
-import ModernLogger
+import ModernSwiftLogger
 
 LogSystem.bootstrapRecommended()
 let log = Log(category: "Networking")

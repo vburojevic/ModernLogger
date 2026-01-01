@@ -1,6 +1,6 @@
 # Migration Guide
 
-If you're moving from `print` or `OSLog` to ModernLogger, start here.
+If you're moving from `print` or `OSLog` to ModernSwiftLogger, start here.
 
 ## From print
 
