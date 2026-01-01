@@ -17,18 +17,22 @@ OPTIONS:
 
 QUICK START:
   1) swift run modernlogger-cli --help
-  2) In your app: LogSystem.bootstrapRecommendedFromEnvironment()
+  2) In your app: LogSystem.bootstrapRecommended()
+
+CONFIGURATION SOURCES:
+  Environment and Info.plist overrides are opt-in. Example:
+    var config = LogConfiguration.recommended()
+    config.applyOverrides([.infoPlist(), .environment()])
+    LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
 
 ENVIRONMENT VARIABLES (prefix: MODERNLOGGER_):
-  MIN_LEVEL, INCLUDE_TAGS, EXCLUDE_TAGS
-  STDOUT, STDOUT_FORMAT, STDOUT_MIN_LEVEL
-  OSLOG_MIN_LEVEL
-  FILE, FILE_NAME, FILE_MIN_LEVEL, FILE_MAX_MB, FILE_MAX_FILES
-  FILE_MAX_AGE_SECONDS, FILE_COMPRESSION, FILE_BUFFER_BYTES
-  FILE_FLUSH_INTERVAL, FILE_PROTECTION, FILE_EXCLUDE_FROM_BACKUP
-  REDACT_KEYS, CATEGORY_LEVELS, TAG_LEVELS
+  MIN_LEVEL, INCLUDE_CATEGORIES, EXCLUDE_CATEGORIES
+  INCLUDE_TAGS, EXCLUDE_TAGS
+  OSLOG_PRIVACY, SOURCE, CONTEXT, TEXT_STYLE
+  REDACT_KEYS, BUFFER
+  CATEGORY_LEVELS, TAG_LEVELS
   SAMPLE_RATE, RATE_LIMIT, CATEGORY_RATE_LIMITS, TAG_RATE_LIMITS
-  MERGE_POLICY, MAX_MESSAGE_BYTES, SUBSYSTEM
+  MERGE_POLICY, MAX_MESSAGE_BYTES
 """
 
 private func printUsage() {

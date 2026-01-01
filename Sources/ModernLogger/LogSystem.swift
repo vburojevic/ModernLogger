@@ -42,6 +42,18 @@ public enum LogSystem {
         runtime.bootstrap(configuration: configuration, sinks: sinks)
     }
 
+    /// Bootstraps with explicit configuration and ordered overrides.
+    /// Overrides are applied in order; later sources win.
+    public static func bootstrap(
+        configuration: LogConfiguration,
+        overrides: [LogConfiguration.OverrideSource],
+        sinks: [any LogSink]
+    ) {
+        var config = configuration
+        config.applyOverrides(overrides)
+        bootstrap(configuration: config, sinks: sinks)
+    }
+
     /// Convenience: bootstrap with recommended defaults and OSLog sink.
     public static func bootstrapRecommended() {
         let config = LogConfiguration.recommended()
@@ -53,71 +65,6 @@ public enum LogSystem {
             #endif
             return [StdoutSink(format: .text, configuration: config)]
         }()
-        bootstrap(configuration: config, sinks: sinks)
-    }
-
-    /// Convenience: recommended defaults + Info.plist + environment overrides.
-    public static func bootstrapRecommendedFromEnvironment(prefix: String = "MODERNLOGGER_") {
-        var config = LogConfiguration.recommended()
-        config.applyInfoPlist(prefix: prefix)
-        config.applyEnvironment(prefix: prefix)
-
-        let env = ProcessInfo.processInfo.environment
-        let stdoutErrorHandler = runtime.makeSinkErrorHandler(label: "StdoutSink")
-        let fileErrorHandler = runtime.makeSinkErrorHandler(label: "FileSink")
-        func sinkFilter(_ key: String) -> LogFilter? {
-            if let s = env["\(prefix)\(key)_MIN_LEVEL"], let lvl = LogLevel(s) {
-                return LogFilter(minimumLevel: lvl)
-            }
-            return nil
-        }
-
-        var sinks: [any LogSink] = []
-
-        #if canImport(OSLog)
-        if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, visionOS 1.0, *) {
-            sinks.append(OSLogSink(privacy: config.oslogPrivacy, filter: sinkFilter("OSLOG")))
-        }
-        #endif
-
-        let stdoutEnabled = parseBool(env["\(prefix)STDOUT"] ?? "") ?? false
-        let isTests = env["XCTestConfigurationFilePath"] != nil
-        if stdoutEnabled || isTests {
-            let fmt = StdoutFormat(rawValue: (env["\(prefix)STDOUT_FORMAT"] ?? "text").lowercased()) ?? .text
-            sinks.append(StdoutSink(format: fmt, configuration: config, filter: sinkFilter("STDOUT"), onError: stdoutErrorHandler))
-        }
-
-        let fileEnabled = parseBool(env["\(prefix)FILE"] ?? "") ?? false
-        if fileEnabled {
-            let name = env["\(prefix)FILE_NAME"] ?? "modernlogger.jsonl"
-            let maxMB = Int(env["\(prefix)FILE_MAX_MB"] ?? "") ?? 10
-            let maxBytes = max(1, maxMB) * 1024 * 1024
-            let maxFiles = Int(env["\(prefix)FILE_MAX_FILES"] ?? "") ?? 5
-            let maxAgeSeconds = Double(env["\(prefix)FILE_MAX_AGE_SECONDS"] ?? "") ?? 0
-            let compressionRaw = (env["\(prefix)FILE_COMPRESSION"] ?? "none").lowercased()
-            let compression = FileSink.Compression(rawValue: compressionRaw) ?? .none
-            let bufferBytes = Int(env["\(prefix)FILE_BUFFER_BYTES"] ?? "") ?? 64 * 1024
-            let flushInterval = Double(env["\(prefix)FILE_FLUSH_INTERVAL"] ?? "") ?? 2
-            let protectionRaw = (env["\(prefix)FILE_PROTECTION"] ?? "").lowercased()
-            let protection = FileSink.FileProtection(rawValue: protectionRaw)
-            let excludeBackup = parseBool(env["\(prefix)FILE_EXCLUDE_FROM_BACKUP"] ?? "") ?? true
-
-            let url = FileSink.defaultURL(fileName: name)
-            let rotation = FileSink.Rotation(
-                maxBytes: maxBytes,
-                maxFiles: maxFiles,
-                maxAgeSeconds: maxAgeSeconds,
-                compression: compression
-            )
-            let buffering = FileSink.Buffering(maxBytes: bufferBytes, flushInterval: flushInterval)
-            let fileOptions = FileSink.FileOptions(protection: protection, excludeFromBackup: excludeBackup)
-            sinks.append(FileSink(url: url, rotation: rotation, buffering: buffering, filter: sinkFilter("FILE"), fileOptions: fileOptions, onError: fileErrorHandler))
-        }
-
-        if sinks.isEmpty {
-            sinks.append(StdoutSink(format: .text, configuration: config, onError: stdoutErrorHandler))
-        }
-
         bootstrap(configuration: config, sinks: sinks)
     }
 
@@ -133,77 +80,6 @@ public enum LogSystem {
         runtime.bootstrapIfNeeded()
     }
 
-    /// Convenient bootstrap that:
-    /// - starts from `.default`
-    /// - applies environment overrides
-    /// - auto-adds sinks based on env flags (OSLog + optional stdout/file)
-    public static func bootstrapFromEnvironment(prefix: String = "MODERNLOGGER_") {
-        var config = LogConfiguration.default
-        config.applyInfoPlist(prefix: prefix)
-        config.applyEnvironment(prefix: prefix)
-
-        let env = ProcessInfo.processInfo.environment
-        let stdoutErrorHandler = runtime.makeSinkErrorHandler(label: "StdoutSink")
-        let fileErrorHandler = runtime.makeSinkErrorHandler(label: "FileSink")
-        func sinkFilter(_ key: String) -> LogFilter? {
-            if let s = env["\(prefix)\(key)_MIN_LEVEL"], let lvl = LogLevel(s) {
-                return LogFilter(minimumLevel: lvl)
-            }
-            return nil
-        }
-
-        // Always include OSLog where available; else fall back to stdout text.
-        var sinks: [any LogSink] = []
-
-        #if canImport(OSLog)
-        if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, visionOS 1.0, *) {
-            sinks.append(OSLogSink(privacy: config.oslogPrivacy, filter: sinkFilter("OSLOG")))
-        }
-        #endif
-
-        // Add stdout if requested or if running in typical test/CI scenarios.
-        let stdoutEnabled = parseBool(env["\(prefix)STDOUT"] ?? "") ?? false
-        let isTests = env["XCTestConfigurationFilePath"] != nil
-        if stdoutEnabled || isTests {
-            let fmt = StdoutFormat(rawValue: (env["\(prefix)STDOUT_FORMAT"] ?? "text").lowercased()) ?? .text
-            sinks.append(StdoutSink(format: fmt, configuration: config, filter: sinkFilter("STDOUT"), onError: stdoutErrorHandler))
-        }
-
-        // Add file sink if requested.
-        let fileEnabled = parseBool(env["\(prefix)FILE"] ?? "") ?? false
-        if fileEnabled {
-            let name = env["\(prefix)FILE_NAME"] ?? "modernlogger.jsonl"
-            let maxMB = Int(env["\(prefix)FILE_MAX_MB"] ?? "") ?? 10
-            let maxBytes = max(1, maxMB) * 1024 * 1024
-            let maxFiles = Int(env["\(prefix)FILE_MAX_FILES"] ?? "") ?? 5
-            let maxAgeSeconds = Double(env["\(prefix)FILE_MAX_AGE_SECONDS"] ?? "") ?? 0
-            let compressionRaw = (env["\(prefix)FILE_COMPRESSION"] ?? "none").lowercased()
-            let compression = FileSink.Compression(rawValue: compressionRaw) ?? .none
-            let bufferBytes = Int(env["\(prefix)FILE_BUFFER_BYTES"] ?? "") ?? 64 * 1024
-            let flushInterval = Double(env["\(prefix)FILE_FLUSH_INTERVAL"] ?? "") ?? 2
-            let protectionRaw = (env["\(prefix)FILE_PROTECTION"] ?? "").lowercased()
-            let protection = FileSink.FileProtection(rawValue: protectionRaw)
-            let excludeBackup = parseBool(env["\(prefix)FILE_EXCLUDE_FROM_BACKUP"] ?? "") ?? true
-
-            let url = FileSink.defaultURL(fileName: name)
-            let rotation = FileSink.Rotation(
-                maxBytes: maxBytes,
-                maxFiles: maxFiles,
-                maxAgeSeconds: maxAgeSeconds,
-                compression: compression
-            )
-            let buffering = FileSink.Buffering(maxBytes: bufferBytes, flushInterval: flushInterval)
-            let fileOptions = FileSink.FileOptions(protection: protection, excludeFromBackup: excludeBackup)
-            sinks.append(FileSink(url: url, rotation: rotation, buffering: buffering, filter: sinkFilter("FILE"), fileOptions: fileOptions, onError: fileErrorHandler))
-        }
-
-        // If nothing was added (e.g. OSLog unavailable), ensure at least stdout text.
-        if sinks.isEmpty {
-            sinks.append(StdoutSink(format: .text, configuration: config, onError: stdoutErrorHandler))
-        }
-
-        bootstrap(configuration: config, sinks: sinks)
-    }
 
     /// Add a sink at runtime.
     public static func addSink(_ sink: any LogSink) {
@@ -271,15 +147,6 @@ public enum LogSystem {
         runtime.emit(event)
     }
 
-    private static func parseBool(_ s: String) -> Bool? {
-        let v = s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        switch v {
-        case "1", "true", "yes", "y", "on": return true
-        case "0", "false", "no", "n", "off": return false
-        default: return nil
-        }
-    }
-
     // MARK: - Runtime (private)
 
     private static let runtime = Runtime()
@@ -315,12 +182,6 @@ public enum LogSystem {
             let override = defaultSubsystemOverride
             lock.unlock()
             if let override, !override.isEmpty { return override }
-            // Environment override is handy for multi-app repos.
-            let env = ProcessInfo.processInfo.environment
-            if let s = env["MODERNLOGGER_SUBSYSTEM"], !s.isEmpty { return s }
-            if let s = Bundle.main.infoDictionary?["MODERNLOGGER_SUBSYSTEM"] as? String, !s.isEmpty {
-                return s
-            }
             return Bundle.main.bundleIdentifier ?? "ModernLogger"
         }
 

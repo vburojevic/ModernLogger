@@ -7,7 +7,7 @@ A modern, multi-sink, structured logger for Apple platforms.
 ```swift
 import ModernLogger
 
-LogSystem.bootstrapFromEnvironment()
+LogSystem.bootstrapRecommended()
 let log = Log(category: "Networking")
 log.info("Request started", metadata: ["url": .string(url.absoluteString)])
 ```

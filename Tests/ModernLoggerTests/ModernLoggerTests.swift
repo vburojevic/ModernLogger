@@ -246,7 +246,7 @@ final class ModernLoggerTests: XCTestCase {
         #endif
     }
 
-    func testBootstrapRecommendedFromEnvironmentAppliesLevel() async throws {
+    func testOverridesApplyEnvironment() async throws {
         let prefix = "MODERNLOGGER_"
         let previous = EnvSnapshot(value: getenv("\(prefix)MIN_LEVEL").flatMap { String(cString: $0) })
         setenv("\(prefix)MIN_LEVEL", "error", 1)
@@ -258,9 +258,10 @@ final class ModernLoggerTests: XCTestCase {
             }
         }
 
-        LogSystem.bootstrapRecommendedFromEnvironment(prefix: prefix)
+        var config = LogConfiguration.recommended()
+        config.applyOverrides([.environment(prefix: prefix)])
         let sink = TestSink()
-        LogSystem.addSink(sink)
+        LogSystem.bootstrap(configuration: config, sinks: [sink])
 
         let log = Log(category: "Env")
         log.info("drop")

@@ -4,7 +4,7 @@
 
 - Check `minimumLevel` and per‑category/tag overrides.
 - Ensure `LogSystem.bootstrap...()` is called before logging.
-- In CI/tests, set `MODERNLOGGER_STDOUT=1`.
+- In CI/tests, use `LogSystem.bootstrapRecommendedForCI()` or apply explicit environment overrides.
 
 ## How do I redact sensitive data?
 

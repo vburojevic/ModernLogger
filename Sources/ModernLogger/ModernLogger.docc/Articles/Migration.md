@@ -32,6 +32,12 @@ log.info("Response",
          metadata: ["status": .int(200), "bytes": .int(Int64(data.count))])
 ```
 
-## Environment toggles
+## Environment toggles (opt-in)
 
-Use environment variables like `MODERNLOGGER_STDOUT=1` and `MODERNLOGGER_MIN_LEVEL=debug` to adjust output without code changes.
+If you want runtime overrides, apply them explicitly:
+
+```swift
+var config = LogConfiguration.recommended()
+config.applyOverrides([.environment()])
+LogSystem.bootstrap(configuration: config, sinks: [StdoutSink(format: .json, configuration: config)])
+```

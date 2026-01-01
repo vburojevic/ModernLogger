@@ -24,7 +24,7 @@ import ModernLogger
 
 ```swift
 // App startup
-LogSystem.bootstrapFromEnvironment()
+LogSystem.bootstrapRecommended()
 
 // Logger per area
 let log = Log(category: "Networking")
@@ -46,10 +46,12 @@ Or:
 LogSystem.bootstrapRecommended()
 ```
 
-Or recommended + environment overrides:
+Or recommended + explicit environment / Info.plist overrides:
 
 ```swift
-LogSystem.bootstrapRecommendedFromEnvironment()
+var config = LogConfiguration.recommended()
+config.applyOverrides([.infoPlist(), .environment()])
+LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
 ```
 
 Or CI-friendly JSON stdout:
@@ -341,29 +343,30 @@ let sink = FileSink(url: FileSink.defaultURL(), fileOptions: options)
 - Prefer `LogPrivacy.private` for OSLog in production.
 - Keep JSONL logs in Caches and exclude from backup if re‑downloadable.
 
-## Environment & Info.plist keys
+## Environment & Info.plist overrides (opt-in)
 
-All keys can be provided via environment variables or Info.plist entries:
+Overrides are only applied when you opt in:
+
+```swift
+var config = LogConfiguration.recommended()
+config.applyOverrides([.infoPlist(), .environment()])
+LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
+```
+
+Available keys via environment variables or Info.plist entries:
 
 ```
 MODERNLOGGER_MIN_LEVEL=debug
+MODERNLOGGER_INCLUDE_CATEGORIES=Networking,UI
+MODERNLOGGER_EXCLUDE_CATEGORIES=Spammy
 MODERNLOGGER_INCLUDE_TAGS=feature:Checkout,bug:JIRA-1234
-MODERNLOGGER_STDOUT=1
-MODERNLOGGER_STDOUT_FORMAT=json          # or "text"
-MODERNLOGGER_STDOUT_MIN_LEVEL=info
-MODERNLOGGER_OSLOG_MIN_LEVEL=notice
-MODERNLOGGER_FILE=1                      # JSONL in caches dir
-MODERNLOGGER_FILE_NAME=modernlogger.jsonl
-MODERNLOGGER_FILE_MIN_LEVEL=debug
-MODERNLOGGER_FILE_MAX_MB=10
-MODERNLOGGER_FILE_MAX_FILES=5
-MODERNLOGGER_FILE_MAX_AGE_SECONDS=3600
-MODERNLOGGER_FILE_COMPRESSION=zlib       # none|zlib|lz4|lzfse|lzma
-MODERNLOGGER_FILE_BUFFER_BYTES=65536
-MODERNLOGGER_FILE_FLUSH_INTERVAL=2
-MODERNLOGGER_FILE_PROTECTION=completeUntilFirstUserAuthentication
-MODERNLOGGER_FILE_EXCLUDE_FROM_BACKUP=1
+MODERNLOGGER_EXCLUDE_TAGS=trace
+MODERNLOGGER_OSLOG_PRIVACY=private       # or "public"
+MODERNLOGGER_SOURCE=1
+MODERNLOGGER_CONTEXT=1
+MODERNLOGGER_TEXT_STYLE=compact          # or "pretty"
 MODERNLOGGER_REDACT_KEYS=password,token,authorization
+MODERNLOGGER_BUFFER=1024
 MODERNLOGGER_CATEGORY_LEVELS=Networking=debug,UI=info
 MODERNLOGGER_TAG_LEVELS=feature:Checkout=error
 MODERNLOGGER_SAMPLE_RATE=0.25
@@ -372,8 +375,9 @@ MODERNLOGGER_CATEGORY_RATE_LIMITS=Networking=10
 MODERNLOGGER_TAG_RATE_LIMITS=feature:Checkout=5
 MODERNLOGGER_MERGE_POLICY=keepExisting   # or replaceWithNew
 MODERNLOGGER_MAX_MESSAGE_BYTES=1024
-MODERNLOGGER_SUBSYSTEM=com.example.app
 ```
+
+Set the default subsystem in code with `LogSystem.setDefaultSubsystem(...)`, or pass a subsystem per `Log` instance.
 
 ## JSONL event schema (file/stdout JSON)
 
@@ -414,11 +418,13 @@ swift run modernlogger-cli --sample
 Use the CLI output to learn environment variables, and then bootstrap in code:
 
 ```swift
-LogSystem.bootstrapRecommendedFromEnvironment()
+var config = LogConfiguration.recommended()
+config.applyOverrides([.infoPlist(), .environment()])
+LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
 ```
 
 ## Support & troubleshooting
 
 - No logs? Ensure you called `LogSystem.bootstrap...()` before logging.
-- Nothing in CI? Set `MODERNLOGGER_STDOUT=1` or use `bootstrapRecommendedForCI()`.
+- Nothing in CI? Use `bootstrapRecommendedForCI()` or enable `StdoutSink` explicitly (optionally with opt-in environment overrides).
 - Too noisy? Raise `minimumLevel` and add per‑category/tag limits.

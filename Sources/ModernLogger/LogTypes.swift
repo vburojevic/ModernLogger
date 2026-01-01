@@ -604,6 +604,31 @@ public struct LogConfiguration: Sendable, Codable {
         categoryRateLimits[category] = limit
     }
 
+    /// Sources for applying configuration overrides.
+    public enum OverrideSource: Sendable {
+        case environment(prefix: String = "MODERNLOGGER_")
+        case infoPlist(prefix: String = "MODERNLOGGER_")
+    }
+
+    /// Apply overrides in order; later sources win.
+    public mutating func applyOverrides(_ sources: [OverrideSource]) {
+        for source in sources {
+            switch source {
+            case .environment(let prefix):
+                applyEnvironment(prefix: prefix)
+            case .infoPlist(let prefix):
+                applyInfoPlist(prefix: prefix)
+            }
+        }
+    }
+
+    /// Return a copy with overrides applied.
+    public func applyingOverrides(_ sources: [OverrideSource]) -> LogConfiguration {
+        var copy = self
+        copy.applyOverrides(sources)
+        return copy
+    }
+
     public init(
         filter: LogFilter,
         oslogPrivacy: LogPrivacy,
@@ -696,8 +721,7 @@ public struct LogConfiguration: Sendable, Codable {
         return config
     }
 
-    /// Apply environment overrides (great for tests/CI/AI agents).
-    public mutating func applyEnvironment(prefix: String = "MODERNLOGGER_") {
+    private mutating func applyEnvironment(prefix: String) {
         let env = ProcessInfo.processInfo.environment
 
         if let s = env["\(prefix)MIN_LEVEL"] ?? env["\(prefix)LEVEL"],
@@ -777,7 +801,7 @@ public struct LogConfiguration: Sendable, Codable {
         }
     }
 
-    public mutating func applyInfoPlist(prefix: String = "MODERNLOGGER_") {
+    private mutating func applyInfoPlist(prefix: String) {
         let info = Bundle.main.infoDictionary ?? [:]
 
         func value(_ key: String) -> String? {

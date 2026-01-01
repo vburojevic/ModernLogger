@@ -8,6 +8,7 @@
 - Added file rotation/compression tests + docs.
 - Added DocC articles (Sinks, Filtering, Redaction, File Sink, Event Stream, In-app Viewer, Migration, Production Checklist, Config Recipes, FAQ).
 - Added `modernlogger-cli` for help and sample output.
+- Removed implicit environment/Info.plist bootstrap helpers and sink configuration; overrides are now opt-in via `LogConfiguration.OverrideSource`.
 
 ## Versioning
 

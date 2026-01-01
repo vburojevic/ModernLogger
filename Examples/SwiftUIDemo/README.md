@@ -9,7 +9,9 @@ import ModernLogger
 @main
 struct DemoApp: App {
     init() {
-        LogSystem.bootstrapRecommendedFromEnvironment()
+        var config = LogConfiguration.recommended()
+        config.applyOverrides([.infoPlist(), .environment()])
+        LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
     }
 
     var body: some Scene {
