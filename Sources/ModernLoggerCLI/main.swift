@@ -20,9 +20,9 @@ QUICK START:
   2) In your app: LogSystem.bootstrapRecommended()
 
 CONFIGURATION SOURCES:
-  Environment and Info.plist overrides are opt-in. Example:
+  Environment overrides are opt-in. Example:
     var config = LogConfiguration.recommended()
-    config.applyOverrides([.infoPlist(), .environment()])
+    config.applyOverrides([.environment()])
     LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
 
 ENVIRONMENT VARIABLES (prefix: MODERNLOGGER_):

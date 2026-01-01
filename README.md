@@ -46,11 +46,11 @@ Or:
 LogSystem.bootstrapRecommended()
 ```
 
-Or recommended + explicit environment / Info.plist overrides:
+Or recommended + explicit environment overrides:
 
 ```swift
 var config = LogConfiguration.recommended()
-config.applyOverrides([.infoPlist(), .environment()])
+config.applyOverrides([.environment()])
 LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
 ```
 
@@ -343,17 +343,17 @@ let sink = FileSink(url: FileSink.defaultURL(), fileOptions: options)
 - Prefer `LogPrivacy.private` for OSLog in production.
 - Keep JSONL logs in Caches and exclude from backup if re‑downloadable.
 
-## Environment & Info.plist overrides (opt-in)
+## Environment overrides (opt-in)
 
 Overrides are only applied when you opt in:
 
 ```swift
 var config = LogConfiguration.recommended()
-config.applyOverrides([.infoPlist(), .environment()])
+config.applyOverrides([.environment()])
 LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
 ```
 
-Available keys via environment variables or Info.plist entries:
+Available keys via environment variables:
 
 ```
 MODERNLOGGER_MIN_LEVEL=debug
@@ -419,7 +419,7 @@ Use the CLI output to learn environment variables, and then bootstrap in code:
 
 ```swift
 var config = LogConfiguration.recommended()
-config.applyOverrides([.infoPlist(), .environment()])
+config.applyOverrides([.environment()])
 LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
 ```
 

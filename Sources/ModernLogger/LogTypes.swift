@@ -607,7 +607,6 @@ public struct LogConfiguration: Sendable, Codable {
     /// Sources for applying configuration overrides.
     public enum OverrideSource: Sendable {
         case environment(prefix: String = "MODERNLOGGER_")
-        case infoPlist(prefix: String = "MODERNLOGGER_")
     }
 
     /// Apply overrides in order; later sources win.
@@ -616,8 +615,6 @@ public struct LogConfiguration: Sendable, Codable {
             switch source {
             case .environment(let prefix):
                 applyEnvironment(prefix: prefix)
-            case .infoPlist(let prefix):
-                applyInfoPlist(prefix: prefix)
             }
         }
     }
@@ -801,86 +798,6 @@ public struct LogConfiguration: Sendable, Codable {
         }
     }
 
-    private mutating func applyInfoPlist(prefix: String) {
-        let info = Bundle.main.infoDictionary ?? [:]
-
-        func value(_ key: String) -> String? {
-            info["\(prefix)\(key)"] as? String
-        }
-
-        if let s = value("MIN_LEVEL") ?? value("LEVEL"), let lvl = LogLevel(s) {
-            filter.minimumLevel = lvl
-        }
-
-        if let s = value("INCLUDE_CATEGORIES") {
-            filter.includeCategories = Set(parseCSV(s))
-        }
-        if let s = value("EXCLUDE_CATEGORIES") {
-            filter.excludeCategories = Set(parseCSV(s))
-        }
-
-        if let s = value("INCLUDE_TAGS") {
-            filter.includeTags = Set(parseCSV(s))
-        }
-        if let s = value("EXCLUDE_TAGS") {
-            filter.excludeTags = Set(parseCSV(s))
-        }
-
-        if let s = value("OSLOG_PRIVACY")?.lowercased(), let p = LogPrivacy(rawValue: s) {
-            oslogPrivacy = p
-        }
-
-        if let s = value("SOURCE"), let b = parseBool(s) {
-            includeSourceLocation = b
-        }
-
-        if let s = value("CONTEXT"), let b = parseBool(s) {
-            includeExecutionContext = b
-        }
-
-        if let s = value("TEXT_STYLE")?.lowercased(), let st = LogTextStyle(rawValue: s) {
-            textStyle = st
-        }
-
-        if let s = value("REDACT_KEYS") {
-            redactedMetadataKeys = Set(parseCSV(s).map { $0.lowercased() })
-        }
-
-        if let s = value("BUFFER"), let n = Int(s), n > 0 {
-            streamBufferCapacity = max(16, n)
-        }
-
-        if let s = value("SAMPLE_RATE"), let rate = Double(s) {
-            filter.sampling = LogFilter.Sampling(rate: rate)
-        }
-
-        if let s = value("CATEGORY_LEVELS") {
-            categoryMinimumLevels = parseCategoryLevels(s)
-        }
-        if let s = value("TAG_LEVELS") {
-            tagMinimumLevels = parseTagLevels(s)
-        }
-
-        if let s = value("RATE_LIMIT"), let n = Int(s), n > 0 {
-            rateLimit = RateLimit(eventsPerSecond: n)
-        }
-
-        if let s = value("CATEGORY_RATE_LIMITS") {
-            categoryRateLimits = parseCategoryRateLimits(s)
-        }
-        if let s = value("TAG_RATE_LIMITS") {
-            tagRateLimits = parseTagRateLimits(s)
-        }
-
-        if let s = value("MERGE_POLICY")?.lowercased(),
-           let policy = LogContext.MergePolicy(rawValue: s) {
-            metadataMergePolicy = policy
-        }
-
-        if let s = value("MAX_MESSAGE_BYTES"), let n = Int(s), n > 0 {
-            maxMessageBytes = n
-        }
-    }
 
     private func parseCSV(_ s: String) -> [String] {
         s.split(separator: ",")

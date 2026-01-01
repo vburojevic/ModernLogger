@@ -10,7 +10,7 @@ import ModernLogger
 struct DemoApp: App {
     init() {
         var config = LogConfiguration.recommended()
-        config.applyOverrides([.infoPlist(), .environment()])
+        config.applyOverrides([.environment()])
         LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
     }
 
