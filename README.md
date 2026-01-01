@@ -1,20 +1,25 @@
 # ModernLogger
 
-A modern, multi‑sink, structured logger for Apple platforms.
+ModernLogger is a multi-sink, structured logger for Apple platforms. It keeps logs consistent across OSLog, JSONL files, and stdout while giving you first-class filtering, tags, rate limiting, and an in-app event stream.
 
-Highlights:
-- Unified Logging (OSLog / Logger) integration
-- Optional JSON Lines (JSONL) file sink with rotation + buffering
-- Optional stdout sink for CI/tests/agents
-- Feature/bug/marker tags for grep‑friendly debugging
-- Task‑local context and scoped correlation IDs
-- Per‑category min levels, sampling, and rate limiting
-- Async event stream for in‑app log viewers
-- Custom formatter support for text output
+## Highlights
+
+- OSLog / Unified Logging integration with privacy control
+- JSONL file sink with rotation, compression, and buffering
+- Stdout sink for CI/tests/agents
+- Structured metadata, tags, and markers for grep-friendly debugging
+- Task-local context and scoped correlation IDs
+- Per-category / per-tag minimum levels, sampling, and rate limits
+- Async event stream for in-app log viewers
+
+## Requirements
+
+- Swift tools: 6.2
+- Platforms: iOS 15+, macOS 12+, tvOS 15+, watchOS 8+, visionOS 1+
 
 ## Install (SwiftPM)
 
-Add the package to your project and import:
+Add the package and import:
 
 ```swift
 import ModernLogger
@@ -33,46 +38,25 @@ let log = Log(category: "Networking")
 log.info("Request started", metadata: ["url": .string(url.absoluteString)])
 ```
 
-## Recommended defaults
+## Recommended setup (explicit sinks)
 
 ```swift
 var config = LogConfiguration.recommended()
-LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
+let sinks: [any LogSink] = [
+    OSLogSink(privacy: config.oslogPrivacy)
+]
+LogSystem.bootstrap(configuration: config, sinks: sinks)
 ```
 
-Or:
-
-```swift
-LogSystem.bootstrapRecommended()
-```
-
-Or recommended + explicit environment overrides:
-
-```swift
-var config = LogConfiguration.recommended()
-config.applyOverrides([.environment()])
-LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
-```
-
-Or CI-friendly JSON stdout:
+CI-friendly JSON stdout:
 
 ```swift
 LogSystem.bootstrapRecommendedForCI()
 ```
 
-## Production checklist
+## Core usage
 
-- Use `.private` privacy for OSLog in release builds.
-- Redact sensitive keys like `password`, `token`, `authorization`.
-- Set `maxMessageBytes` to avoid oversized payloads.
-- Use file protection + exclude logs from backup if needed.
-- Use per‑category/tag levels and rate limits to reduce noise.
-
-## Migration
-
-If you're moving from `print` or `OSLog`, see the DocC article `Migration` for quick replacements and structured metadata examples.
-
-## Tags and markers
+### Tags and markers
 
 ```swift
 log.forFeature("Checkout").debug("step=validate")
@@ -81,7 +65,7 @@ log.forBug("JIRA-1234").warning("Unexpected server response")
 log.marker("CHECKOUT_FLOW_ENTER")
 ```
 
-## Task‑local context
+### Task-local context
 
 ```swift
 let requestID = UUID().uuidString
@@ -93,7 +77,7 @@ await LogSystem.withContext(
 }
 ```
 
-## Scopes and spans
+### Scopes and spans
 
 ```swift
 let scope = log.scoped() // correlation_id + corr:<id> tag
@@ -108,7 +92,7 @@ let result = try log.measure("ParseJSON") {
 }
 ```
 
-## LogValue helpers
+### LogValue helpers
 
 ```swift
 log.info("Payload",
@@ -123,13 +107,13 @@ log.info("Payload",
 
 ## Sinks
 
-- `OSLogSink`: default when available
-- `StdoutSink`: text or JSON (useful for tests/CI)
+- `OSLogSink`: default on supported OSes
+- `StdoutSink`: text or JSON (tests/CI/agents)
 - `FileSink`: JSONL with rotation + compression + buffering
 - `InMemorySink`: ring buffer for tests and support workflows
 - `TestSink`: awaitable helpers for tests
 
-### Per‑sink filters
+Per-sink filters:
 
 ```swift
 let config = LogConfiguration.default
@@ -140,7 +124,7 @@ let sinks: [any LogSink] = [
 LogSystem.bootstrap(configuration: config, sinks: sinks)
 ```
 
-### Custom formatter
+Custom formatter:
 
 ```swift
 struct MyFormatter: LogFormatter {
@@ -152,104 +136,15 @@ struct MyFormatter: LogFormatter {
 let sink = StdoutSink(format: .text, configuration: .default, formatter: MyFormatter())
 ```
 
-### Sink error handling
-
-```swift
-LogSystem.setSinkErrorHandler { error in
-    print("ModernLogger sink error: \(error)")
-}
-```
-
-### Sink error diagnostics
-
-```swift
-let snapshots = LogSystem.sinkErrorSnapshots()
-LogSystem.clearSinkErrors()
-```
-
-If you build a custom sink, reuse the helper to record errors:
-
-```swift
-let handler = LogSystem.makeSinkErrorHandler(label: "MySink")
-// Pass handler into your sink and call it on errors.
-```
-
-## Event stream (in‑app viewers)
-
-```swift
-let stream = LogSystem.events()
-Task {
-    for await event in stream {
-        print(event.message)
-    }
-}
-```
-
-## Integration examples
-
-### SwiftUI
-
-```swift
-struct ContentView: View {
-    private let log = Log(category: "UI")
-
-    var body: some View {
-        Text("Hello")
-            .task {
-                log.info("ContentView appeared")
-            }
-    }
-}
-```
-
-### In‑app log viewer
-
-```swift
-struct LogViewer: View {
-    @State private var events: [LogEvent] = []
-
-    var body: some View {
-        List(events, id: \.id) { event in
-            Text("[\(event.level.name.uppercased())] \(event.message)")
-        }
-        .task {
-            let stream = LogSystem.events()
-            for await event in stream {
-                events.append(event)
-                if events.count > 500 { events.removeFirst(events.count - 500) }
-            }
-        }
-    }
-}
-```
-
-### URLSession
-
-```swift
-let log = Log(category: "Networking")
-let (data, _) = try await URLSession.shared.data(from: url)
-log.debug("Response", metadata: ["bytes": .int(Int64(data.count))])
-```
-
-### Background task
-
-```swift
-let log = Log(category: "Background")
-await LogSystem.withContext(tags: [.feature("Refresh")]) {
-    log.notice("Background refresh started")
-}
-```
-
 ## Configuration
 
 ### Default subsystem
 
 ```swift
-// Override the default subsystem used by new Log instances.
 LogSystem.setDefaultSubsystem("com.example.app")
 ```
 
-### Per‑category minimum levels
+### Per-category minimum levels
 
 ```swift
 var config = LogConfiguration.default
@@ -258,7 +153,7 @@ config.categoryMinimumLevels = ["Networking": .debug, "UI": .info]
 config.setCategoryMinimumLevel(.debug, for: "Networking")
 ```
 
-### Per‑tag minimum levels
+### Per-tag minimum levels
 
 ```swift
 var config = LogConfiguration.default
@@ -278,19 +173,8 @@ config.filter.sampling = .init(rate: 0.25) // 25% of events
 
 ```swift
 var config = LogConfiguration.default
-config.rateLimit = RateLimit(eventsPerSecond: 50) // global
+config.rateLimit = RateLimit(eventsPerSecond: 50)
 config.categoryRateLimits = ["Networking": RateLimit(eventsPerSecond: 10)]
-// or
-config.setCategoryRateLimit(RateLimit(eventsPerSecond: 10), for: "Networking")
-```
-
-### Per‑tag rate limiting
-
-```swift
-var config = LogConfiguration.default
-config.tagRateLimits = ["feature:Checkout": RateLimit(eventsPerSecond: 5)]
-// or
-config.setTagRateLimit(RateLimit(eventsPerSecond: 5), for: .feature("Checkout"))
 ```
 
 ### Message truncation
@@ -327,7 +211,7 @@ let buffering = FileSink.Buffering(maxBytes: 64 * 1024, flushInterval: 2)
 let sink = FileSink(url: FileSink.defaultURL(), rotation: rotation, buffering: buffering)
 ```
 
-### File protection + backup exclusion
+File protection + backup exclusion:
 
 ```swift
 let options = FileSink.FileOptions(
@@ -337,15 +221,26 @@ let options = FileSink.FileOptions(
 let sink = FileSink(url: FileSink.defaultURL(), fileOptions: options)
 ```
 
-## Privacy & PII guidance
+## Event stream (in-app viewers)
 
-- Avoid logging secrets (tokens, passwords, auth headers); redact aggressively.
-- Prefer `LogPrivacy.private` for OSLog in production.
-- Keep JSONL logs in Caches and exclude from backup if re‑downloadable.
+```swift
+let stream = LogSystem.events()
+Task {
+    for await event in stream {
+        print(event.message)
+    }
+}
+```
+
+## Privacy & PII
+
+- Avoid logging secrets; redact aggressively.
+- Use `LogPrivacy.private` for OSLog in production.
+- Keep JSONL logs in Caches and exclude from backup when possible.
 
 ## Environment overrides (opt-in)
 
-Overrides are only applied when you opt in:
+Overrides are applied only when you opt in:
 
 ```swift
 var config = LogConfiguration.recommended()
@@ -353,7 +248,7 @@ config.applyOverrides([.environment()])
 LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
 ```
 
-Available keys via environment variables:
+Available keys:
 
 ```
 MODERNLOGGER_MIN_LEVEL=debug
@@ -377,9 +272,34 @@ MODERNLOGGER_MERGE_POLICY=keepExisting   # or replaceWithNew
 MODERNLOGGER_MAX_MESSAGE_BYTES=1024
 ```
 
-Set the default subsystem in code with `LogSystem.setDefaultSubsystem(...)`, or pass a subsystem per `Log` instance.
+## For AI agents
 
-## JSONL event schema (file/stdout JSON)
+ModernLogger is agent-friendly: it supports JSONL output and exposes a tiny CLI for discovery.
+
+CLI:
+
+```bash
+swift run modernlogger-cli --help
+swift run modernlogger-cli --sample
+```
+
+Recommended agent bootstrap (deterministic JSONL to stdout):
+
+```swift
+let config = LogConfiguration.recommended(minLevel: .debug)
+let sink = StdoutSink(format: .json, configuration: config)
+LogSystem.bootstrap(configuration: config, sinks: [sink])
+```
+
+If your agent can set environment variables, opt into overrides:
+
+```swift
+var config = LogConfiguration.recommended()
+config.applyOverrides([.environment()])
+LogSystem.bootstrap(configuration: config, sinks: [StdoutSink(format: .json, configuration: config)])
+```
+
+## JSONL event schema
 
 Each line is a single JSON object matching `LogEvent`:
 
@@ -387,6 +307,17 @@ Each line is a single JSON object matching `LogEvent`:
 - `level`, `subsystem`, `category`, `message`
 - `tags`, `metadata`
 - `source` (optional), `execution` (optional)
+
+## Docs and examples
+
+- DocC articles: Sinks, Filtering, Redaction, File Sink, Event Stream, In-app Viewer, Migration, Rotation/Compression, Production Checklist, Config Recipes, FAQ
+- `Examples/SwiftUIDemo/README.md`
+
+## Troubleshooting
+
+- No logs? Ensure `LogSystem.bootstrap...()` is called before logging.
+- Nothing in CI? Use `bootstrapRecommendedForCI()` or wire up a `StdoutSink`.
+- Too noisy? Raise `minimumLevel` or add per-category / per-tag limits.
 
 ## Tests
 
@@ -401,30 +332,3 @@ See `CHANGELOG.md`.
 ## Contributing
 
 See `CONTRIBUTING.md`.
-
-## Examples
-
-- `Examples/SwiftUIDemo/README.md`
-
-## For AI agents (CLI + usage)
-
-The package includes a tiny CLI for discovery:
-
-```bash
-swift run modernlogger-cli --help
-swift run modernlogger-cli --sample
-```
-
-Use the CLI output to learn environment variables, and then bootstrap in code:
-
-```swift
-var config = LogConfiguration.recommended()
-config.applyOverrides([.environment()])
-LogSystem.bootstrap(configuration: config, sinks: [OSLogSink()])
-```
-
-## Support & troubleshooting
-
-- No logs? Ensure you called `LogSystem.bootstrap...()` before logging.
-- Nothing in CI? Use `bootstrapRecommendedForCI()` or enable `StdoutSink` explicitly (optionally with opt-in environment overrides).
-- Too noisy? Raise `minimumLevel` and add per‑category/tag limits.
